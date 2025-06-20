@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ZoneGame - Real World Battle Royale</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html, body { height: 100%; margin: 0; }
+        #map { height: 100%; }
+        #setup {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            z-index: 1000;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            font-family: sans-serif;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+<div id="setup">
+    <label>Start-Radius (m): <input type="number" id="radius" value="500"></label><br>
+    <label>Shrink-Intervall (s): <input type="number" id="interval" value="60"></label><br>
+    <label>Shrink-Faktor (%): <input type="number" id="factor" value="10"></label><br>
+    <label>Countdown außerhalb (s): <input type="number" id="countdown" value="15"></label><br>
+    <button onclick="startGame()">Spiel starten</button>
+</div>
+<div id="map"></div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+let map, circle, zoneCenter, watchId, countdownTimer;
+let radius, interval, factor, countdown;
+let intervalId;
+let remainingCountdown;
+
+function startGame() {
+    radius = parseFloat(document.getElementById('radius').value);
+    interval = parseFloat(document.getElementById('interval').value) * 1000;
+    factor = parseFloat(document.getElementById('factor').value) / 100;
+    countdown = parseFloat(document.getElementById('countdown').value);
+
+    document.getElementById('setup').style.display = 'none';
+
+    map = L.map('map').fitWorld();
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+    }).addTo(map);
+
+    map.locate({ setView: true, maxZoom: 16, watch: true });
+
+    map.on('locationfound', onLocationFound);
+}
+
+function onLocationFound(e) {
+    if (!zoneCenter) {
+        zoneCenter = e.latlng;
+        circle = L.circle(zoneCenter, {
+            color: 'green',
+            fillColor: '#3f3',
+            fillOpacity: 0.3,
+            radius: radius
+        }).addTo(map);
+
+        // Start zone shrinking
+        intervalId = setInterval(() => {
+            radius *= (1 - factor);
+            zoneCenter = L.latLng(
+                zoneCenter.lat + (Math.random() - 0.5) * 0.0002,
+                zoneCenter.lng + (Math.random() - 0.5) * 0.0002
+            );
+            circle.setRadius(radius);
+            circle.setLatLng(zoneCenter);
+        }, interval);
+    }
+
+    const distance = map.distance(e.latlng, zoneCenter);
+    if (distance > radius) {
+        if (!countdownTimer) {
+            remainingCountdown = countdown;
+            countdownTimer = setInterval(() => {
+                remainingCountdown--;
+                if (remainingCountdown <= 0) {
+                    alert("GAME OVER: Du hast die Zone verlassen.");
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                    clearInterval(intervalId);
+                }
+            }, 1000);
+        }
+    } else {
+        if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+        }
+    }
+}
+</script>
+</body>
+</html>
